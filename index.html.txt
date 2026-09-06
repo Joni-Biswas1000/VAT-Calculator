@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAT Calculation — Audicords</title>
+<style>
+  :root{
+    --ink: #17233b;
+    --ink-soft: #3c4a63;
+    --paper: #f4f1ea;
+    --paper-line: #d8d2c2;
+    --gold: #a9762f;
+    --gold-deep: #7c5522;
+    --green: #3c5b3f;
+    --red: #8a3324;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0;
+    padding:0;
+  }
+
+  body{
+    background: var(--paper);
+    background-image:
+      repeating-linear-gradient(180deg, transparent 0, transparent 27px, rgba(23,35,59,0.05) 28px);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    display:flex;
+    justify-content:center;
+    padding: 48px 18px 64px;
+    min-height: 100vh;
+  }
+
+  .sheet{
+    width: 100%;
+    max-width: 560px;
+    background: #fffdf8;
+    border: 1px solid var(--paper-line);
+    box-shadow: 0 1px 0 rgba(23,35,59,0.06), 0 18px 40px -24px rgba(23,35,59,0.35);
+    position: relative;
+  }
+
+  .sheet::before{
+    content:"";
+    position:absolute;
+    inset: 10px;
+    border: 1px solid rgba(23,35,59,0.15);
+    pointer-events:none;
+  }
+
+  header{
+    padding: 38px 40px 26px;
+    text-align:center;
+    border-bottom: 1px solid var(--paper-line);
+  }
+
+  .brand{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: var(--gold-deep);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+
+  h1{
+    margin: 0;
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+
+  .subhead{
+    margin: 10px 0 0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 0.01em;
+  }
+
+  form{
+    padding: 34px 40px 10px;
+  }
+
+  .field{
+    margin-bottom: 26px;
+  }
+
+  .field label{
+    display:block;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-bottom: 9px;
+  }
+
+  .amount-row{
+    display:flex;
+    align-items:stretch;
+    border-bottom: 1.5px solid var(--ink);
+  }
+
+  .amount-row .currency{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 20px;
+    color: var(--ink-soft);
+    padding: 6px 10px 6px 0;
+    display:flex;
+    align-items:center;
+  }
+
+  input[type="number"]{
+    flex:1;
+    border: none;
+    background: transparent;
+    font-family: "Courier New", monospace;
+    font-size: 24px;
+    padding: 6px 0;
+    color: var(--ink);
+    width: 100%;
+    outline: none;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .vat-row{
+    display:flex;
+    align-items:baseline;
+    gap: 8px;
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 6px;
+  }
+
+  .vat-row input[type="number"]{
+    font-size: 24px;
+  }
+
+  .vat-row .pct{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 20px;
+    color: var(--ink-soft);
+  }
+
+  .toggle{
+    display:flex;
+    border: 1px solid var(--ink);
+  }
+
+  .toggle label{
+    flex:1;
+    margin:0;
+    text-align:center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding: 12px 10px;
+    cursor:pointer;
+    position:relative;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .toggle label:first-child{
+    border-right: 1px solid var(--ink);
+  }
+
+  .toggle input{
+    position:absolute;
+    opacity:0;
+    width:0;
+    height:0;
+  }
+
+  .toggle label.active{
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .toggle small{
+    display:block;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+    opacity:0.75;
+  }
+
+  /* Deductions section */
+  .deductions-toggle{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 14px 0;
+    border-top: 1px dashed var(--paper-line);
+    border-bottom: 1px dashed var(--paper-line);
+    margin-bottom: 26px;
+    cursor:pointer;
+    user-select:none;
+  }
+
+  .deductions-toggle input{
+    width: 16px;
+    height: 16px;
+    accent-color: var(--gold-deep);
+  }
+
+  .deductions-toggle span{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .deductions-toggle .hint{
+    font-size: 11px;
+    color: var(--ink-soft);
+    opacity: 0.65;
+    margin-left: auto;
+  }
+
+  #deductionFields{
+    display:none;
+  }
+
+  #deductionFields.show{
+    display:block;
+  }
+
+  .ded-block{
+    margin-bottom: 22px;
+    padding: 16px 16px 6px;
+    border: 1px solid var(--paper-line);
+    background: rgba(169,118,47,0.04);
+  }
+
+  .ded-title{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--gold-deep);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  .ded-row{
+    display:flex;
+    gap: 14px;
+  }
+
+  .ded-col{
+    flex:1;
+  }
+
+  .ded-col label{
+    font-size: 11.5px;
+    margin-bottom: 7px;
+  }
+
+  .ded-rate{
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 4px;
+  }
+
+  .ded-rate input[type="number"]{
+    font-size: 19px;
+    padding: 4px 0;
+  }
+
+  .ded-rate .pct{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    color: var(--ink-soft);
+  }
+
+  select{
+    width: 100%;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 12.5px;
+    color: var(--ink);
+    background: #fffdf8;
+    border: 1px solid var(--ink);
+    padding: 9px 8px;
+    outline: none;
+  }
+
+  button{
+    width: 100%;
+    background: var(--gold-deep);
+    color: #fffdf8;
+    border: none;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    padding: 16px 10px;
+    cursor:pointer;
+    margin-top: 6px;
+    transition: background 0.15s ease;
+  }
+
+  button:hover{
+    background: var(--ink);
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  label:focus-within{
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .result{
+    margin: 6px 40px 40px;
+    border-top: 2px solid var(--ink);
+    padding-top: 22px;
+    display:none;
+  }
+
+  .result.show{
+    display:block;
+  }
+
+  .line{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--paper-line);
+  }
+
+  .line .val{
+    font-family: "Courier New", monospace;
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  .line.vat .val{ color: var(--red); }
+  .line.net .val{ color: var(--ink-soft); }
+  .line.ded .val{ color: var(--red); }
+
+  .line.subtotal{
+    font-weight: 600;
+  }
+
+  .line.subtotal .val{
+    color: var(--ink);
+    font-size: 16px;
+  }
+
+  .line.total{
+    border-bottom:none;
+    padding-top: 16px;
+    margin-top: 4px;
+  }
+
+  .line.total span:first-child{
+    font-size: 14.5px;
+    color: var(--ink);
+    font-weight:600;
+  }
+
+  .line.total .val{
+    font-size: 24px;
+    color: var(--green);
+    font-weight:600;
+  }
+
+  footer{
+    text-align:center;
+    padding: 20px 20px 6px;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    opacity: 0.6;
+  }
+
+  @media (max-width: 480px){
+    header{ padding: 30px 22px 22px; }
+    form{ padding: 26px 22px 6px; }
+    .result{ margin: 6px 22px 30px; }
+    h1{ font-size: 25px; }
+    .ded-row{ flex-direction:column; gap: 14px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <header>
+    <p class="brand">AUDICORDS</p>
+    <h1>VAT Calculation</h1>
+    <p class="subhead">Work out VAT, TDS and VDS on any amount, together</p>
+  </header>
+
+  <form id="vatForm">
+    <div class="field">
+      <label for="amount">Amount</label>
+      <div class="amount-row">
+        <span class="currency">৳</span>
+        <input type="number" id="amount" inputmode="decimal" step="0.01" min="0" placeholder="0.00" required>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>VAT is</label>
+      <div class="toggle" id="modeToggle">
+        <label id="exclusiveLabel">
+          <input type="radio" name="mode" value="exclusive" checked>
+          <span>Exclusive of VAT<small>Amount does not include VAT</small></span>
+        </label>
+        <label id="inclusiveLabel">
+          <input type="radio" name="mode" value="inclusive">
+          <span>Inclusive of VAT<small>Amount already includes VAT</small></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="rate">VAT rate</label>
+      <div class="vat-row">
+        <input type="number" id="rate" inputmode="decimal" step="0.01" min="0" value="15">
+        <span class="pct">%</span>
+      </div>
+    </div>
+
+    <label class="deductions-toggle" for="enableDeductions">
+      <input type="checkbox" id="enableDeductions">
+      <span>Also deduct TDS / VDS</span>
+      <span class="hint">optional</span>
+    </label>
+
+    <div id="deductionFields">
+      <div class="ded-block">
+        <div class="ded-title">TDS — Tax Deducted at Source</div>
+        <div class="ded-row">
+          <div class="ded-col">
+            <label for="tdsRate">Rate</label>
+            <div class="ded-rate">
+              <input type="number" id="tdsRate" inputmode="decimal" step="0.01" min="0" value="0">
+              <span class="pct">%</span>
+            </div>
+          </div>
+          <div class="ded-col">
+            <label for="tdsBasis">Calculated on</label>
+            <select id="tdsBasis">
+              <option value="amount" selected>Amount (excl. VAT)</option>
+              <option value="total">Total (incl. VAT)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="ded-block">
+        <div class="ded-title">VDS — VAT Deducted at Source</div>
+        <div class="ded-row">
+          <div class="ded-col">
+            <label for="vdsRate">Rate</label>
+            <div class="ded-rate">
+              <input type="number" id="vdsRate" inputmode="decimal" step="0.01" min="0" value="0">
+              <span class="pct">%</span>
+            </div>
+          </div>
+          <div class="ded-col">
+            <label for="vdsBasis">Calculated on</label>
+            <select id="vdsBasis">
+              <option value="vat" selected>VAT amount</option>
+              <option value="amount">Amount (excl. VAT)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit">See Calculate</button>
+  </form>
+
+  <div class="result" id="result">
+    <div class="line net">
+      <span>Net amount (excl. VAT)</span>
+      <span class="val" id="netVal">৳ 0.00</span>
+    </div>
+    <div class="line vat">
+      <span>VAT amount</span>
+      <span class="val" id="vatVal">৳ 0.00</span>
+    </div>
+    <div class="line subtotal">
+      <span>Total (Amount + VAT)</span>
+      <span class="val" id="totalVal">৳ 0.00</span>
+    </div>
+    <div class="line ded" id="tdsLine" style="display:none;">
+      <span>Less: TDS deduction</span>
+      <span class="val" id="tdsVal">৳ 0.00</span>
+    </div>
+    <div class="line ded" id="vdsLine" style="display:none;">
+      <span>Less: VDS deduction</span>
+      <span class="val" id="vdsVal">৳ 0.00</span>
+    </div>
+    <div class="line total">
+      <span id="finalLabel">Total amount</span>
+      <span class="val" id="finalVal">৳ 0.00</span>
+    </div>
+  </div>
+
+  <footer>AUDICORDS · VAT / TDS / VDS CALCULATOR</footer>
+</div>
+
+<script>
+  const form = document.getElementById('vatForm');
+  const result = document.getElementById('result');
+  const netVal = document.getElementById('netVal');
+  const vatVal = document.getElementById('vatVal');
+  const totalVal = document.getElementById('totalVal');
+  const tdsVal = document.getElementById('tdsVal');
+  const vdsVal = document.getElementById('vdsVal');
+  const finalVal = document.getElementById('finalVal');
+  const finalLabel = document.getElementById('finalLabel');
+  const tdsLine = document.getElementById('tdsLine');
+  const vdsLine = document.getElementById('vdsLine');
+  const exclusiveLabel = document.getElementById('exclusiveLabel');
+  const inclusiveLabel = document.getElementById('inclusiveLabel');
+  const enableDeductions = document.getElementById('enableDeductions');
+  const deductionFields = document.getElementById('deductionFields');
+
+  function fmt(n){
+    return '৳ ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function getMode(){
+    const checked = document.querySelector('input[name="mode"]:checked');
+    return checked ? checked.value : 'exclusive';
+  }
+
+  function syncToggleStyle(){
+    const mode = getMode();
+    exclusiveLabel.classList.toggle('active', mode === 'exclusive');
+    inclusiveLabel.classList.toggle('active', mode === 'inclusive');
+  }
+
+  document.querySelectorAll('input[name="mode"]').forEach(function(r){
+    r.addEventListener('change', syncToggleStyle);
+  });
+  syncToggleStyle();
+
+  enableDeductions.addEventListener('change', function(){
+    deductionFields.classList.toggle('show', enableDeductions.checked);
+  });
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+
+    const amount = parseFloat(document.getElementById('amount').value);
+    const rate = parseFloat(document.getElementById('rate').value);
+    const mode = getMode();
+
+    if (isNaN(amount) || isNaN(rate) || amount < 0 || rate < 0){
+      return;
+    }
+
+    let net, vat, total;
+
+    if (mode === 'exclusive'){
+      net = amount;
+      vat = amount * (rate / 100);
+      total = net + vat;
+    } else {
+      total = amount;
+      net = amount / (1 + rate / 100);
+      vat = total - net;
+    }
+
+    netVal.textContent = fmt(net);
+    vatVal.textContent = fmt(vat);
+    totalVal.textContent = fmt(total);
+
+    let finalAmount = total;
+    let tds = 0;
+    let vds = 0;
+
+    if (enableDeductions.checked){
+      const tdsRate = parseFloat(document.getElementById('tdsRate').value) || 0;
+      const vdsRate = parseFloat(document.getElementById('vdsRate').value) || 0;
+      const tdsBasis = document.getElementById('tdsBasis').value;
+      const vdsBasis = document.getElementById('vdsBasis').value;
+
+      tds = tdsRate > 0 ? (tdsBasis === 'total' ? total : net) * (tdsRate / 100) : 0;
+      vds = vdsRate > 0 ? (vdsBasis === 'vat' ? vat : net) * (vdsRate / 100) : 0;
+
+      finalAmount = total - tds - vds;
+
+      tdsVal.textContent = fmt(tds);
+      vdsVal.textContent = fmt(vds);
+      tdsLine.style.display = tdsRate > 0 ? 'flex' : 'none';
+      vdsLine.style.display = vdsRate > 0 ? 'flex' : 'none';
+      finalLabel.textContent = 'Net payable';
+    } else {
+      tdsLine.style.display = 'none';
+      vdsLine.style.display = 'none';
+      finalLabel.textContent = 'Total amount';
+    }
+
+    finalVal.textContent = fmt(finalAmount);
+
+    result.classList.add('show');
+  });
+</script>
+
+</body>
+</html>
